@@ -1,0 +1,4 @@
+# Simulation parameters
+ENERGY_PER_TICK = 0.1
+DIVISION_THRESHOLD = 10.0
+INITIAL_CELL_ENERGY = 5.0
