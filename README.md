@@ -1,3 +1,130 @@
+# Advanced LLM Telegram Bot
+
+A feature-rich, asynchronous Telegram bot that acts as a unified interface for multiple Large Language Model providers. Currently supports **Perplexity AI** (web search, reasoning) and **Groq** (high-speed inference).
+
+This bot goes beyond simple text echoing by offering rich Markdown formatting, LaTeX rendering, file attachments, thread support, and a dedicated Web View for complex responses.
+
+## Features
+
+*   **Multi-Provider Support**: Switch dynamically between **Perplexity** and **Groq** for now, the list can be expanded.
+*   **Streaming Responses**: Real-time token streaming for a responsive user experience.
+*   **Rich Formatting**:
+    *   Auto-converts Markdown to Telegram-compatible formats.
+    *   Renders LaTeX equations (e.g., $\sqrt{x}$) into Unicode approximations for chat.
+    *   Syntax highlighting for code blocks.
+*   **Web View & Artifacts**:
+    *   Generates a "Web View" link for responses containing complex Math/LaTeX or long formatting.
+    *   **Asset Extraction**: Automatically detects code blocks and files in LLM responses and offers them as downloadable files within Telegram.
+*   **Context Awareness**:
+    *   Supports Telegram Forum Topics (Threads).
+    *   Maintains conversation history in a SQLite database.
+    *   Allows changing models/providers per-thread or globally per-user.
+*   **Media Support**:
+    *   Send images (Vision capabilities).
+    *   Send text/code files for analysis.
+*   **Robust Architecture**:
+    *   Async database operations (SQLAlchemy + aiosqlite).
+    *   Circuit breakers and retry logic for API stability.
+    *   Integrated Web Server (aiohttp) with automatic Ngrok tunneling.
+
+## Prerequisites
+
+*   Python 3.9+
+*   A Telegram Bot Token (from @BotFather)
+*   (Optional) A Groq API Key
+*   (Optional) Perplexity Account Cookies (for Perplexity provider)
+*   (Optional) Ngrok Auth Token (for public Web View)
+
+## Installation
+
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/yourusername/llm-telegram-bot.git
+    cd llm-telegram-bot
+    ```
+
+2.  **Create a virtual environment:**
+    ```bash
+    python -m venv venv
+    source venv/bin/activate
+    ```
+
+3.  **Install dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+## Configuration
+
+Create a `.env` file in the root directory (see `.env.example`).
+
+### How to get Perplexity Cookies
+To access Perplexity provider, you need your session cookies. The easiest way is using the **Cookie-Editor** browser extension:
+
+1.  Install **Cookie-Editor** for [Chrome](https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm) or [Firefox](https://addons.mozilla.org/en-US/firefox/addon/cookie-editor/).
+2.  Log in to [perplexity.ai](https://www.perplexity.ai).
+3.  Open the extension and click the **Export** button (bottom right).
+4.  Select **Header String**.
+5.  Paste the copied string into your `.env` file as `PERPLEXITY_COOKIES`.
+
+## Usage
+
+This bot is designed to work best in **Telegram Groups with Topics enabled**. This allows each conversation to have its own dedicated history and settings.
+
+### 1. Group Setup
+1.  **Create a new Group** in Telegram.
+2.  Open the group info and click **Edit** (pencil icon).
+3.  Find **Topics** and enable it.
+4.  **Pin** the "General" topic so it stays at the top (recommended).
+
+### 2. Bot Permissions
+1.  Add the bot to the group.
+2.  Promote the bot to **Admin** (Group Info > Administrators > Add Admin).
+3.  *Crucial Step*: In the Admin rights menu, ensure **Manage Topics** is enabled.
+    *   *Note*: The Telegram disables this option after the adding admin, save the admin rights first, then tap on the bot in the list of admins again to edit permissions and toggle **Manage Topics** on.
+
+### 3. Starting a Conversation
+1.  Go to the **General** topic.
+2.  Send your prompt (e.g., "Help me write a Python script").
+3.  The bot will automatically:
+    *   Create a **New Topic** derived from your prompt.
+    *   Reply inside that new topic.
+    *   Save the conversation history specifically for that thread.
+
+## Project Structure
+
+```
+.
+├── main.py                  # Entry point
+├── requirements.txt         # Dependencies
+├── mypy.ini                 # Type checking config
+├── config/
+│   ├── logger.py            # Logging configuration
+│   └── settings.py          # Environment variables & Config class
+├── core/
+│   ├── bot_controller.py    # Core Telegram logic
+│   └── handlers.py          # Callback/Button handlers
+├── decorators/
+│   └── decorators.py        # Resilience & utility decorators
+├── providers/
+│   ├── base.py              # Abstract base class for providers
+│   ├── groq.py              # Groq Provider
+│   ├── openai_compatible.py # Generic OpenAI wrapper
+│   ├── perplexity.py        # Perplexity Provider (Internal API)
+│   └── provider_manager.py  # Dynamic provider switching logic
+├── storage/
+│   ├── database.py          # Async Database Manager
+│   └── models.py            # SQLAlchemy Database Models
+├── utils/
+│   ├── formatter.py         # Markdown & LaTeX processing
+│   └── webserver.py         # AIOHTTP server for Web View
+└── var/                     # Database storage location
+```
+
+## Architecture
+
+The bot uses a modular architecture separating the Telegram Interface, LLM Providers, and Data Storage.
+
 ```mermaid
 classDiagram
     namespace Configuration {
@@ -415,3 +542,7 @@ classDiagram
     HandlerFunctions ..> DatabaseManager
     HandlerFunctions ..> KeyboardStateManager
 ```
+
+## License
+
+MIT License.
