@@ -1,3 +1,4 @@
+```mermaid
 classDiagram
     namespace Configuration {
         class EnvVar {
@@ -413,3 +414,4 @@ classDiagram
     
     HandlerFunctions ..> DatabaseManager
     HandlerFunctions ..> KeyboardStateManager
+```
