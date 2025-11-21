@@ -28,6 +28,16 @@ classDiagram
     %% DATABASE & MODELS
     %% ==========================================
     namespace Storage {
+        %% External SQLAlchemy Parent Classes
+        class AsyncAttrs {
+            <<SQLAlchemy Extension>>
+        }
+        class DeclarativeBase {
+            <<SQLAlchemy ORM>>
+            +metadata
+            +registry
+        }
+
         class DatabaseManager {
             +Path db_path
             +AsyncEngine engine
@@ -46,8 +56,9 @@ classDiagram
             +save_user_settings(user_id, settings)
         }
 
+        %% The Base class acts as the anchor for the models
         class Base {
-            <<SQLAlchemy>>
+            <<ORM Base>>
         }
 
         class MessageRole {
@@ -101,6 +112,17 @@ classDiagram
             +str keyboard_json
         }
     }
+
+    %% Inheritance Logic
+    AsyncAttrs <|-- Base
+    DeclarativeBase <|-- Base
+    
+    Base <|-- Conversation
+    Base <|-- ConversationMessage
+    Base <|-- WebPage
+    Base <|-- Asset
+    Base <|-- UserSetting
+    Base <|-- KeyboardState
 
     %% ==========================================
     %% LLM PROVIDERS
