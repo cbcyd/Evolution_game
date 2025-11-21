@@ -1,182 +1,335 @@
 ```mermaid
 classDiagram
     %% ==========================================
-    %% CONFIGURATION & UTILS
+    %% CONFIGURATION & SETTINGS
     %% ==========================================
-    class Config {
-        <<Static>>
-        +BOT_TOKEN : str
-        +PROVIDER_NAME : str
-        +DATABASE_PATH : str
-        +MAX_MESSAGE_LENGTH : int
-        +validate()
-    }
-
-    class LoggerModule {
-        <<Module>>
-        +setup_logging()
-    }
-
-    class DecoratorsModule {
-        <<Module>>
-        +resilient_request(scope, max_retries)
-        +operation(name, notify_user)
-        +threaded_transaction(func)
-    }
-
-    %% ==========================================
-    %% DATA MODELS
-    %% ==========================================
-    class Conversation {
-        +conversation_id : str
-        +chat_id : int
-        +topic_id : int
-        +messages : List~ConversationMessage~
-        +metadata : Dict
-        +add_message(role, content, metadata)
-    }
-
-    class ConversationMessage {
-        +role : MessageRole
-        +content : str
-        +timestamp : datetime
-        +to_dict()
-        +from_dict(data)
-    }
-
-    class Asset {
-        +asset_id : str
-        +file_name : str
-        +file_data : bytes
-        +language : str
-        +size : int
+    namespace Config_Settings {
+        class EnvVar {
+            +str key
+            +Any default
+            +Type cast
+            +bool required
+            +__get__(instance, owner) Any
+        }
+        
+        class Config {
+            +EnvVar BOT_TOKEN
+            +EnvVar PROVIDER_NAME
+            +EnvVar PERPLEXITY_COOKIES
+            +EnvVar GROQ_API_KEY
+            +EnvVar WEB_HOST
+            +EnvVar WEB_PORT
+            +EnvVar DATABASE_PATH
+            +validate()$
+        }
     }
 
     %% ==========================================
-    %% STORAGE LAYER
+    %% DATABASE & MODELS
     %% ==========================================
-    class DatabaseManager {
-        +save_conversation(conversation)
-        +load_conversation(chat_id, topic_id)
-        +get_conversation_by_id(conversation_id)
-        +save_web_page(page_id, conversation_id, index, content)
-        +load_web_page(page_id)
-        +save_asset(page_id, asset)
-        +load_assets(page_id)
-        +get_asset(page_id, asset_id)
-        +save_answer_state(state)
-        +save_keyboard_state(page_id, json)
-        +load_keyboard_state(page_id)
-        +delete_keyboard_state(page_id)
-        +get_user_settings(user_id)
-        +save_user_settings(user_id, settings)
-    }
+    namespace Storage {
+        class DatabaseManager {
+            +Path db_path
+            +AsyncEngine engine
+            +async_sessionmaker session_factory
+            +_initialize_schema()
+            +save_conversation(Conversation)
+            +load_conversation(chat_id, topic_id) Conversation
+            +save_web_page(page_id, conversation_id, msg_index)
+            +load_web_page(page_id) str
+            +save_asset(page_id, Asset)
+            +load_assets(page_id) List~Asset~
+            +load_asset(page_id, asset_id) Asset
+            +save_keyboard_state(page_id, json)
+            +load_keyboard_state(page_id) str
+            +get_user_settings(user_id) Dict
+            +save_user_settings(user_id, settings)
+        }
 
-    %% ==========================================
-    %% PROVIDER LOGIC
-    %% ==========================================
-    class ProviderManager {
-        +register(name, class, config)
-        +get_provider(name, model)
-        +get_available_providers(active_conv, current)
-        +get_available_models(provider_name)
-        +get_default_model(provider_name)
-    }
+        class Base {
+            <<SQLAlchemy>>
+        }
 
-    class BaseLLMProvider {
-        <<Abstract>>
-        +provider_type* : ProviderType
-        +capabilities : List~ProviderCapability~
-        +generate_response(conversation, stream, attachments)*
-        +create_extra_buttons(conversation)
-        +get_available_models()*
-    }
+        class MessageRole {
+            <<Enumeration>>
+            USER
+            ASSISTANT
+            SYSTEM
+        }
 
-    class PerplexityProvider {
-        +AVAILABLE_MODELS : List
-        +generate_response(conversation, stream, attachments)
-        +create_extra_buttons(conversation)
-        +get_available_models()
-    }
+        class ConversationMessage {
+            +int message_id
+            +str conversation_id
+            +str _role
+            +str content
+            +datetime timestamp
+            +Dict meta_data
+        }
 
-    %% ==========================================
-    %% FORMATTING & WEB
-    %% ==========================================
-    class MessageFormatter {
-        +format_response_for_telegram(raw_text)
-    }
+        class Conversation {
+            +str conversation_id
+            +int chat_id
+            +int topic_id
+            +str topic_name
+            +datetime created_at
+            +datetime updated_at
+            +add_message(role, content, meta)
+        }
 
-    class WebServer {
-        +start()
-        +get_answer_url(page_id)
-    }
+        class WebPage {
+            +str page_id
+            +str conversation_id
+            +int message_index
+        }
 
-    %% ==========================================
-    %% BOT CONTROLLER & HANDLERS
-    %% ==========================================
-    class BotController {
-        +handle_user_message(message)
-        +handle_user_document(message)
-        +handle_user_photo(message)
-    }
+        class Asset {
+            +str asset_id
+            +str page_id
+            +str file_name
+            +bytes file_data
+            +str language
+            +int size
+        }
 
-    class KeyboardStateManager {
-        +serialize_keyboard(keyboard)
-        +deserialize_keyboard(json)
-        +save_keyboard_state(context, keyboard)
-        +restore_keyboard_state(context)
-        +delete_keyboard_state(context)
-    }
+        class UserSetting {
+            +int user_id
+            +Dict settings_json
+        }
 
-    class KeyboardHandler {
-        +create_settings_button(conv_id)
-        +create_general_topic_settings(user_id)
-        +create_settings_menu(conv_id, provider, model)
-        +create_provider_selection(context, providers, is_default)
-        +create_model_selection(context, models, is_default)
-        +handle_settings_callback(cb)
-        +handle_provider_menu(cb)
-        +handle_model_menu(cb)
-        +handle_provider_selection(cb)
-        +handle_model_selection(cb)
-        +handle_close_settings(cb)
-        +handle_user_settings_open(cb)
-        +handle_user_settings_provider_menu(cb)
-        +handle_user_settings_model_menu(cb)
-        +handle_user_provider_selection(cb)
-        +handle_user_model_selection(cb)
-        +handle_user_settings_back(cb)
-        +handle_close_user_settings(cb)
-    }
-
-    class AssetHandlersModule {
-        <<Module>>
-        +handle_assets_menu(cb, storage, state_mgr)
-        +handle_asset_download(cb, storage)
-        +handle_assets_back(cb, storage, state_mgr)
+        class KeyboardState {
+            +str page_id
+            +str keyboard_json
+        }
     }
 
     %% ==========================================
+    %% LLM PROVIDERS
+    %% ==========================================
+    namespace Providers {
+        class ProviderType {
+            <<Enumeration>>
+            SERVER_HISTORY
+            CLIENT_HISTORY
+        }
+
+        class ProviderCapability {
+            <<Enumeration>>
+            ACCEPTS_IMAGES
+            ACCEPTS_FILES
+            STREAMING
+        }
+
+        class AttachmentInput {
+            <<TypedDict>>
+            +str filename
+            +str content_type
+            +bytes data
+        }
+
+        class BaseLLMProvider {
+            <<Abstract>>
+            +DatabaseManager storage
+            +provider_type() ProviderType*
+            +capabilities() List~ProviderCapability~
+            +generate_response(conv, stream, attachments)*
+            +create_extra_buttons(conv) List
+            +get_available_models()*
+        }
+
+        class OpenAICompatibleProvider {
+            +str api_key
+            +str base_url
+            +str model
+            +AsyncOpenAI client
+            +_prepare_messages(conv, attachments)
+            +_create_chat_completion(messages, model)
+            +generate_response()
+        }
+
+        class GroqProvider {
+            +AVAILABLE_MODELS
+        }
+
+        class PerplexityProvider {
+            +AVAILABLE_MODELS
+            +str model
+            +dict cookies_dict
+            +AsyncSession session
+            +_init_session()
+            +_establish_connection(url, json)
+            +generate_response()
+            +_upload_attachments(attachments)
+            +_create_upload_ticket()
+            +_upload_to_s3()
+        }
+
+        class ProviderManager {
+            +register(name, class, config)
+            +get_provider(name, model) BaseLLMProvider
+            +get_available_providers() List
+            +get_available_models(name) List
+            +get_default_model(name) str
+        }
+    }
+
+    %% ==========================================
+    %% CORE LOGIC
+    %% ==========================================
+    namespace Core {
+        class BotController {
+            +Bot bot
+            +DatabaseManager storage
+            +ProviderManager provider_manager
+            +WebServer web_server
+            +MessageFormatter formatter
+            +KeyboardHandler keyboard_handler
+            +_pending_attachments
+            +_media_group_buffer
+            +handle_user_message(Message)
+            +handle_user_document(Message)
+            +handle_user_photo(Message)
+            +_handle_media_upload()
+            +_process_conversation_flow()
+            +_generate_and_stream_response()
+            +_finalize()
+            +_create_keyboard()
+        }
+
+        class MessageFormatter {
+            +_latex_to_unicode(str) str
+            +_preprocess_latex_in_markdown(str) str
+            +_extract_content_structure(str) List
+            +_process_file_box(box) Tuple
+            +format_response_for_telegram(str) Tuple~List[str], List[Asset]~
+        }
+    }
+
+    %% ==========================================
+    %% HANDLERS & UI
+    %% ==========================================
+    namespace Handlers {
+        class KeyboardStateManager {
+            +serialize_keyboard()$
+            +deserialize_keyboard()$
+            +save_keyboard_state()
+            +restore_keyboard_state()
+        }
+
+        class SettingsStrategy {
+            <<Abstract>>
+            +get_settings(context_id)*
+            +update_settings(context_id, key, val)*
+            +get_available_providers(context_id)*
+        }
+
+        class ConversationStrategy {
+            +get_settings()
+            +update_settings()
+        }
+
+        class UserStrategy {
+            +get_settings()
+            +update_settings()
+        }
+
+        class KeyboardHandler {
+            +KeyboardStateManager state_manager
+            +Dict strategies
+            +build_root_menu()
+            +build_list_menu()
+            +create_settings_button()
+            +handle_unified_callback(CallbackQuery)
+        }
+
+        class StandaloneHandlers {
+            +handle_assets_menu()
+            +handle_asset_download()
+            +handle_assets_back()
+        }
+    }
+
+    %% ==========================================
+    %% WEB SERVER
+    %% ==========================================
+    namespace Web {
+        class WebServer {
+            +str host
+            +int port
+            +web.Application app
+            +str public_url
+            +start()
+            +_start_ngrok()
+            +get_answer_url(page_id)
+            +view_answer(request)
+        }
+    }
+
+    %% ==========================================
+    %% UTILS & DECORATORS
+    %% ==========================================
+    namespace Utilities {
+        class Logger {
+            +setup_logging()
+        }
+
+        class Decorators {
+            +CircuitBreakerState
+            +RateLimitState
+            +resilient_request()
+            +operation()
+            +db_lock_retry()
+            +cpu_bound()
+        }
+    }
+
     %% RELATIONSHIPS
-    %% ==========================================
-    
-    BotController --> DatabaseManager
-    BotController --> ProviderManager
-    BotController --> WebServer
-    BotController --> MessageFormatter
-    BotController --> KeyboardHandler
-    
-    KeyboardHandler --> DatabaseManager
-    KeyboardHandler --> ProviderManager
-    KeyboardHandler --> KeyboardStateManager
-    
-    AssetHandlersModule ..> DatabaseManager
-    AssetHandlersModule ..> KeyboardStateManager
 
-    ProviderManager --> BaseLLMProvider
-    BaseLLMProvider <|-- PerplexityProvider
-    
-    Conversation *-- ConversationMessage
+    %% Config
+    Config *-- EnvVar
+
+    %% Models
+    Base <|-- Conversation
+    Base <|-- ConversationMessage
+    Base <|-- WebPage
+    Base <|-- Asset
+    Base <|-- UserSetting
+    Base <|-- KeyboardState
+    Conversation "1" *-- "0..*" ConversationMessage
+    Conversation "1" -- "0..*" WebPage : Linked
+    WebPage "1" -- "0..*" Asset
+
+    %% Storage
     DatabaseManager ..> Conversation
     DatabaseManager ..> Asset
+    DatabaseManager ..> UserSetting
+
+    %% Providers
+    BaseLLMProvider <|-- OpenAICompatibleProvider
+    BaseLLMProvider <|-- PerplexityProvider
+    OpenAICompatibleProvider <|-- GroqProvider
+    ProviderManager "1" *-- "0..*" BaseLLMProvider : manages
+    PerplexityProvider ..> AttachmentInput
+    BaseLLMProvider ..> ProviderType
+    BaseLLMProvider ..> ProviderCapability
+
+    %% Handlers
+    SettingsStrategy <|-- ConversationStrategy
+    SettingsStrategy <|-- UserStrategy
+    KeyboardHandler o-- SettingsStrategy
+    KeyboardHandler o-- KeyboardStateManager
+    KeyboardHandler o-- ProviderManager
+    StandaloneHandlers ..> KeyboardStateManager
+
+    %% Core
+    BotController o-- DatabaseManager
+    BotController o-- ProviderManager
+    BotController o-- WebServer
+    BotController o-- MessageFormatter
+    BotController o-- KeyboardHandler
+    
+    %% Main dependencies
+    Config <.. BotController : uses
+    Decorators <.. BotController : uses
+    Decorators <.. DatabaseManager : uses
+    Decorators <.. PerplexityProvider : uses
 ```
